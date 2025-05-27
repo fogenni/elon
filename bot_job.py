@@ -268,7 +268,19 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # можно просто залогировать ошибку и продолжить:
         print(f"Не удалось залогировать старт: {err}")
 
+
+
 async def show_features(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    # логируем клик «Что может этот бот»
+    try:
+        with db_connect() as (conn, cursor):
+            cursor.execute(
+                "INSERT INTO features_clicks (telegram_id) VALUES (%s)",
+                (user_id,),
+            )
+    except mysql.connector.Error as err:
+        print(f"Не удалось залогировать просмотр возможностей: {err}")
     
     features_text = (
         "*🤖 Что умеет этот бот:*\n\n"
@@ -283,13 +295,37 @@ async def show_features(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Этот бот избавит вас от рутинных Excel-таблиц и даст полный контроль "
         "над штатным расписанием, задачами и оплатой труда прямо в Telegram."
     )
+    # Отправляем текст возможностей
     await update.message.reply_text(features_text, parse_mode="Markdown")
-    return await start(update, context)
+
+    # Теперь вручную показываем главное меню, как в start()
+    registration_keyboard = ReplyKeyboardMarkup(
+        [
+            ["Регистрация сотрудника", "Регистрация компании"],
+            ["Войти", "❓ Что может этот бот"]
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=True
+    )
+    await update.message.reply_text(
+        "👋 Выберите один из вариантов:",
+        reply_markup=registration_keyboard
+    )
+    # Больше ничего не возвращаем
 
 
 
 async def login(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
+    # логируем клик «Войти»
+    try:
+        with db_connect() as (conn, cursor):
+            cursor.execute(
+                "INSERT INTO login_clicks (telegram_id) VALUES (%s)",
+                (user_id,),
+            )
+    except mysql.connector.Error as err:
+        print(f"Не удалось залогировать вход: {err}")
 
     if not check_subscription(user_id):
         await update.message.reply_text(
@@ -345,6 +381,14 @@ async def register_company(update: Update, context: ContextTypes.DEFAULT_TYPE):
     – проверяет, что пользователь ещё не админ ни одной компании,
     """
     user_id = update.effective_user.id
+    try:
+        with db_connect() as (conn, cursor):
+            cursor.execute(
+                "INSERT INTO company_register_clicks (telegram_id) VALUES (%s)",
+                (user_id,),
+            )
+    except mysql.connector.Error as err:
+        print(f"Не удалось залогировать регистрацию компании: {err}")
 
     try:
         with db_connect() as (conn, cursor):
@@ -2880,15 +2924,38 @@ async def stocks_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def start_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     with db_connect() as (conn, cursor):
+        # Старт
         cursor.execute("SELECT COUNT(*) FROM start_clicks")
-        total = cursor.fetchone()[0]
-        cursor.execute(
-            "SELECT COUNT(*) FROM start_clicks WHERE clicked_at >= CURDATE()"
-        )
-        today = cursor.fetchone()[0]
+        total_start = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM start_clicks WHERE clicked_at >= CURDATE()")
+        today_start = cursor.fetchone()[0]
+        # Регистрация компании
+        cursor.execute("SELECT COUNT(*) FROM company_register_clicks")
+        total_reg = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM company_register_clicks WHERE clicked_at >= CURDATE()")
+        today_reg = cursor.fetchone()[0]
+        # Войти
+        cursor.execute("SELECT COUNT(*) FROM login_clicks")
+        total_login = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM login_clicks WHERE clicked_at >= CURDATE()")
+        today_login = cursor.fetchone()[0]
+        # Что может бот
+        cursor.execute("SELECT COUNT(*) FROM features_clicks")
+        total_feat = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM features_clicks WHERE clicked_at >= CURDATE()")
+        today_feat = cursor.fetchone()[0]
+
     await update.message.reply_text(
-        f"🗓 За сегодня нажали «Старт»: {today}\n"
-        f"📊 Всего нажали «Старт»: {total}"
+        f"🗓 За сегодня:\n"
+        f"• Старт: {today_start}\n"
+        f"• Регистрация компании: {today_reg}\n"
+        f"• Войти: {today_login}\n"
+        f"• Что может бот: {today_feat}\n\n"
+        f"📊 Всего:\n"
+        f"• Старт: {total_start}\n"
+        f"• Регистрация компании: {total_reg}\n"
+        f"• Войти: {total_login}\n"
+        f"• Что может бот: {total_feat}"
     )
 
 
