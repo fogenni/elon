@@ -2883,6 +2883,20 @@ async def stocks_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
+async def start_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    with db_connect() as (conn, cursor):
+        cursor.execute("SELECT COUNT(*) FROM start_clicks")
+        total = cursor.fetchone()[0]
+        cursor.execute(
+            "SELECT COUNT(*) FROM start_clicks WHERE clicked_at >= CURDATE()"
+        )
+        today = cursor.fetchone()[0]
+    await update.message.reply_text(
+        f"🗓 За сегодня нажали «Старт»: {today}\n"
+        f"📊 Всего нажали «Старт»: {total}"
+    )
+
+
 
 if __name__ == '__main__':
     try:
@@ -2999,6 +3013,7 @@ if __name__ == '__main__':
         app.add_handler(MessageHandler(filters.Regex("^💰 Премии и штрафы$"), handle_admin_section))
         app.add_handler(MessageHandler(filters.Regex("^📦 Сборка$"), handle_admin_section))
         app.add_handler(MessageHandler(filters.Regex("^⚙️ Система$"), handle_admin_section))
+        
     
        
 
@@ -3068,6 +3083,7 @@ if __name__ == '__main__':
         
         app.add_handler(CommandHandler("checklist_report", checklist_report))
         app.add_handler(CommandHandler("show_reg", show_reg))
+        app.add_handler(CommandHandler("start_stats", start_stats))
         app.add_handler(MessageHandler(filters.Regex("^📊 Отчет по чек-листам$"), checklist_report))
         
         app.add_handler(MessageHandler(filters.Regex('^💳 Моя подписка$'), my_subscription))
