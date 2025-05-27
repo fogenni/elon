@@ -78,6 +78,11 @@ SET_TASK_EMPLOYEE = 12
 BONUS_EMPLOYEE = 20
 BONUS_AMOUNT = 21
 
+CREATE TABLE IF NOT EXISTS start_clicks (
+  id            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  telegram_id   BIGINT NOT NULL,
+  clicked_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 
 def get_table(table_base, company_id):
@@ -256,6 +261,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=registration_keyboard,
         parse_mode="Markdown"
     )
+# Логируем клик "Старт"
+    try:
+        with db_connect() as (conn, cursor):
+            cursor.execute(
+                "INSERT INTO start_clicks (telegram_id) VALUES (%s)",
+                (user_id,),
+            )
+    except mysql.connector.Error as err:
+        # Если уж совсем не хочется прерывать работу бота,
+        # можно просто залогировать ошибку и продолжить:
+        print(f"Не удалось залогировать старт: {err}")
 
 async def show_features(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
